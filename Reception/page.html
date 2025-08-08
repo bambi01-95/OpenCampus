@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>オープンキャンパス受付システム</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="logo">
+      <img src="public/kuas_logo.jpg" alt="KUAS Logo" />
+    </div>
+    <!-- コンテナ -->
+    <div class="container">
+      <div class="header">
+        <div class="logo-section">
+          <h1>オープンキャンパス受付システム</h1>
+        </div>
+        <div class="file-controls">
+          <div class="file-input-wrapper">
+            <input
+              type="file"
+              id="csvFile"
+              class="file-input"
+              accept=".csv,.xlsx,.xls"
+            />
+            <label for="csvFile" class="btn btn-primary"
+              >ファイル読み込み</label
+            >
+          </div>
+          <button id="exportCsv" class="btn btn-primary">
+            ファイル書き出し
+          </button>
+        </div>
+      </div>
+
+      <div class="main-content">
+        <!-- 検索セクション -->
+        <div class="search-section">
+          <div class="search-controls">
+            <div class="search-input-wrapper">
+              <input
+                type="text"
+                id="searchInput"
+                class="search-input"
+                placeholder="名前で検索（漢字・カタカナを入力）"
+                autocomplete="off"
+              />
+              <div
+                id="autocompleteSuggestions"
+                class="autocomplete-suggestions"
+                style="display: none"
+              ></div>
+            </div>
+            <button id="clearSearchBtn" class="btn btn-secondary">
+              クリア
+            </button>
+          </div>
+          <div id="searchResults" class="search-results"></div>
+        </div>
+
+        <!-- 新規追加フォーム -->
+        <div id="addForm" class="form-section" style="display: none">
+          <h3>新規参加者追加</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">名前（漢字）</label>
+              <input type="text" id="kanjiName" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">名前（カタカナ）</label>
+              <input type="text" id="katakanaName" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">見学プログラム</label>
+              <select id="projectSelect" class="form-select">
+                <option value="">プログラムを選択</option>
+              </select>
+            </div>
+          </div>
+          <div class="result-actions">
+            <button id="addMember" class="btn btn-success">追加</button>
+            <button id="cancelAdd" class="btn btn-danger">キャンセル</button>
+          </div>
+        </div>
+
+        <!-- プロジェクト一覧 -->
+        <div class="section-title">見学プログラム一覧</div>
+        <div id="projectList" class="project-grid"></div>
+
+        <!-- 欠席者リスト -->
+        <div id="absentList" class="absent-list" style="display: none">
+          <div class="absent-title">欠席者リスト</div>
+          <div id="absentMembers" class="absent-members"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- プロジェクト編集モーダル -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">プログラム変更</h3>
+          <span class="close">&times;</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">新しいプログラム</label>
+          <select id="editProjectSelect" class="form-select">
+            <option value="">プログラムを選択</option>
+          </select>
+        </div>
+        <div class="result-actions" style="margin-top: 20px">
+          <button id="saveEdit" class="btn btn-success">保存</button>
+          <button id="cancelEdit" class="btn btn-danger">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 最大人数編集モーダル -->
+    <div id="maxMembersModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">最大人数の変更</h3>
+          <span class="close" onclick="closeMaxMembersModal()">&times;</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">プログラム名</label>
+          <input type="text" id="editProjectName" class="form-input" readonly />
+        </div>
+        <div class="form-group">
+          <label class="form-label">最大人数</label>
+          <input type="number" id="editMaxMembers" class="form-input" min="1" />
+        </div>
+        <div class="result-actions" style="margin-top: 20px">
+          <button id="saveMaxMembers" class="btn btn-success">保存</button>
+          <button onclick="closeMaxMembersModal()" class="btn btn-danger">
+            キャンセル
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
+  </body>
+</html>
