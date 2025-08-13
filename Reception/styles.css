@@ -327,7 +327,7 @@ h1 {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -392,10 +392,13 @@ h1 {
 }
 
 .project-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #212529;
   margin-bottom: 10px;
+  line-height: 1.3;
+  word-wrap: break-word;
+  hyphens: auto;
 }
 
 .project-stats {
@@ -459,6 +462,17 @@ h1 {
 
 .member-item:last-child {
   border-bottom: none;
+}
+
+/* クリック可能な参加者名のスタイル */
+.member-name {
+  font-weight: 500;
+  transition: color 0.3s ease, text-decoration-color 0.3s ease;
+}
+
+.member-name:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
 }
 
 .attendance-status {

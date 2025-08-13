@@ -1,12 +1,27 @@
 // グローバル変数
 let membersData = [];
 let projects = [
-  { id: 1, name: "AIプロジェクト", maxMembers: 30 },
-  { id: 2, name: "Webアプリ開発", maxMembers: 25 },
-  { id: 3, name: "データ分析", maxMembers: 20 },
-  { id: 4, name: "モバイルアプリ", maxMembers: 40 },
-  { id: 5, name: "IoTシステム", maxMembers: 50 },
-  { id: 6, name: "工学部説明会", maxMembers: 100 },
+  {
+    id: 1,
+    name: "目指せ、最速ロボット！　～自動走行プログラミングにトライ～",
+    maxMembers: 8,
+  },
+  {
+    id: 2,
+    name: "電気の不思議を探ろう！　～LEDを回路の工夫で光らせよう～",
+    maxMembers: 25,
+  },
+  {
+    id: 3,
+    name: "ドローンで植物チェック！　～空から見守る緑の元気～",
+    maxMembers: 20,
+  },
+  {
+    id: 4,
+    name: "“紙”技エンジニアリング！　～長さと強さの最大化に挑戦～",
+    maxMembers: 40,
+  },
+  { id: 5, name: "希望なし", maxMembers: 200 },
 ];
 let currentEditingMember = null;
 let currentEditingProject = null;
@@ -106,20 +121,8 @@ function handleSearchInput(e) {
   // オートコンプリート候補を表示（ひらがな対応）
   showAutocompleteSuggestions(query, katakanaQuery);
 
-  // 完全一致する場合は結果を表示
-  const exactMatch = membersData.find(
-    (member) =>
-      member.kanji === query ||
-      member.katakana === query ||
-      member.katakana === katakanaQuery
-  );
-
-  if (exactMatch) {
-    displaySearchResults([exactMatch]);
-    hideAddForm();
-  } else {
-    document.getElementById("searchResults").innerHTML = "";
-  }
+  // 検索結果は表示しない（performSearchで処理）
+  document.getElementById("searchResults").innerHTML = "";
 }
 
 // オートコンプリート候補表示（ひらがな対応版）
@@ -128,13 +131,25 @@ function showAutocompleteSuggestions(query, katakanaQuery) {
   const lowerQuery = query.toLowerCase();
   const lowerKatakanaQuery = katakanaQuery.toLowerCase();
 
+  // 重複を避けるためにSetを使用
+  const seenMembers = new Set();
   const matches = membersData
-    .filter(
-      (member) =>
+    .filter((member) => {
+      const isMatch =
         member.kanji.toLowerCase().includes(lowerQuery) ||
         member.katakana.toLowerCase().includes(lowerQuery) ||
-        member.katakana.toLowerCase().includes(lowerKatakanaQuery)
-    )
+        member.katakana.toLowerCase().includes(lowerKatakanaQuery);
+
+      if (isMatch) {
+        // 同一人物の重複チェック
+        const memberKey = `${member.kanji}-${member.katakana}`;
+        if (!seenMembers.has(memberKey)) {
+          seenMembers.add(memberKey);
+          return true;
+        }
+      }
+      return false;
+    })
     .slice(0, 10); // 最大10件まで表示
 
   if (matches.length === 0) {
@@ -258,12 +273,24 @@ function performSearch() {
   // ひらがなが含まれている場合はカタカナに変換した検索も行う
   const katakanaQuery = hiraganaToKatakana(query).toLowerCase();
 
-  const matches = membersData.filter(
-    (member) =>
+  // 重複を避けるためにSetを使用して一意な結果を取得
+  const matchedMembers = new Set();
+  const matches = membersData.filter((member) => {
+    const isMatch =
       member.kanji.toLowerCase().includes(query) ||
       member.katakana.toLowerCase().includes(query) ||
-      member.katakana.toLowerCase().includes(katakanaQuery)
-  );
+      member.katakana.toLowerCase().includes(katakanaQuery);
+
+    if (isMatch) {
+      // 同一人物の重複チェック（漢字名＋カタカナ名の組み合わせで判定）
+      const memberKey = `${member.kanji}-${member.katakana}`;
+      if (!matchedMembers.has(memberKey)) {
+        matchedMembers.add(memberKey);
+        return true;
+      }
+    }
+    return false;
+  });
 
   if (matches.length > 0) {
     displaySearchResults(matches);
@@ -290,16 +317,16 @@ function displayInitialProjects() {
               <div class="project-title">${project.name}</div>
               <div class="project-stats">
                   <div class="stat-item">
-                      <div class="stat-number">${project.maxMembers}</div>
-                      <div class="stat-label">最大人数</div>
+                      <div class="stat-number">0/${project.maxMembers}</div>
+                      <div class="stat-label">出席者/最大人数</div>
                   </div>
                   <div class="stat-item">
                       <div class="stat-number">0</div>
-                      <div class="stat-label">登録人数</div>
+                      <div class="stat-label">事前登録者</div>
                   </div>
                   <div class="stat-item">
                       <div class="stat-number">0</div>
-                      <div class="stat-label">出席者</div>
+                      <div class="stat-label">当日登録者</div>
                   </div>
               </div>
               <div class="member-list">
@@ -360,27 +387,46 @@ function parseExcelData(data) {
   const headers = jsonData[0];
   membersData = [];
 
-  let kanjiIndex = -1,
-    kanaIndex = -1,
-    projectIndex = -1,
+  // 新しいフォーマットに対応したカラムマッピング
+  let seiIndex = -1,
+    meiIndex = -1,
+    seiKanaIndex = -1,
+    meiKanaIndex = -1,
+    cs1Index = -1,
+    cs2Index = -1,
+    cs3Index = -1,
     attendanceIndex = -1;
 
   headers.forEach((header, index) => {
-    const h = header.toString().toLowerCase();
-    if (h.includes("漢字") || (h.includes("名前") && !h.includes("カナ"))) {
-      kanjiIndex = index;
-    } else if (h.includes("カナ") || h.includes("カタカナ")) {
-      kanaIndex = index;
-    } else if (h.includes("プロジェクト") || h.includes("プログラム")) {
-      projectIndex = index;
+    const h = header.toString().trim();
+    if (h === "姓") {
+      seiIndex = index;
+    } else if (h === "名") {
+      meiIndex = index;
+    } else if (h === "セイ") {
+      seiKanaIndex = index;
+    } else if (h === "メイ") {
+      meiKanaIndex = index;
+    } else if (h === "CS第一希望") {
+      cs1Index = index;
+    } else if (h === "CS第二希望") {
+      cs2Index = index;
+    } else if (h === "CS第三希望") {
+      cs3Index = index;
     } else if (h.includes("出席") || h.includes("参加")) {
       attendanceIndex = index;
     }
   });
 
-  if (kanjiIndex === -1 || kanaIndex === -1 || projectIndex === -1) {
+  if (
+    seiIndex === -1 ||
+    meiIndex === -1 ||
+    seiKanaIndex === -1 ||
+    meiKanaIndex === -1 ||
+    cs1Index === -1
+  ) {
     showNotification(
-      "必要な列（名前（漢字）、名前（カナ）、プログラム）が見つかりません",
+      "必要な列（姓、名、セイ、メイ、CS第一希望）が見つかりません",
       "error"
     );
     return;
@@ -388,11 +434,32 @@ function parseExcelData(data) {
 
   for (let i = 1; i < jsonData.length; i++) {
     const row = jsonData[i];
-    if (row[kanjiIndex] && row[kanaIndex] && row[projectIndex]) {
+    if (
+      row[seiIndex] &&
+      row[meiIndex] &&
+      row[seiKanaIndex] &&
+      row[meiKanaIndex]
+    ) {
+      const kanji = `${row[seiIndex]}${row[meiIndex]}`.trim();
+      const katakana = `${row[seiKanaIndex]}${row[meiKanaIndex]}`.trim();
+      const cs1 = row[cs1Index] ? row[cs1Index].toString().trim() : "";
+      const cs2 = row[cs2Index] ? row[cs2Index].toString().trim() : "";
+      const cs3 = row[cs3Index] ? row[cs3Index].toString().trim() : "";
+
+      // CS第一希望に基づいてプロジェクトを割り当て
+      let assignedProject = "希望なし";
+      if (cs1) {
+        assignedProject = cs1;
+      }
+
       membersData.push({
-        kanji: row[kanjiIndex].toString().trim(),
-        katakana: row[kanaIndex].toString().trim(),
-        project: row[projectIndex].toString().trim(),
+        kanji: kanji,
+        katakana: katakana,
+        project: assignedProject,
+        cs1: cs1,
+        cs2: cs2,
+        cs3: cs3,
+        registrationType: "事前登録", // Excel/CSVから読み込まれたデータは事前登録
         attendance:
           attendanceIndex !== -1 && row[attendanceIndex]
             ? row[attendanceIndex].toString().trim()
@@ -429,14 +496,41 @@ function parseCSV(csv) {
   const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
   membersData = [];
 
-  let kanjiIndex = -1,
-    kanaIndex = -1,
-    projectIndex = -1,
+  // 新しいフォーマットまたは旧フォーマットに対応
+  let seiIndex = -1,
+    meiIndex = -1,
+    seiKanaIndex = -1,
+    meiKanaIndex = -1,
+    cs1Index = -1,
+    cs2Index = -1,
+    cs3Index = -1,
     attendanceIndex = -1;
 
+  // 旧フォーマット用
+  let kanjiIndex = -1,
+    kanaIndex = -1,
+    projectIndex = -1;
+
   headers.forEach((header, index) => {
-    const h = header.toLowerCase();
-    if (h.includes("漢字") || h === "名前（漢字）") {
+    const h = header.trim();
+    // 新フォーマット
+    if (h === "姓") {
+      seiIndex = index;
+    } else if (h === "名") {
+      meiIndex = index;
+    } else if (h === "セイ") {
+      seiKanaIndex = index;
+    } else if (h === "メイ") {
+      meiKanaIndex = index;
+    } else if (h === "CS第一希望") {
+      cs1Index = index;
+    } else if (h === "CS第二希望") {
+      cs2Index = index;
+    } else if (h === "CS第三希望") {
+      cs3Index = index;
+    }
+    // 旧フォーマット
+    else if (h.includes("漢字") || h === "名前（漢字）") {
       kanjiIndex = index;
     } else if (
       h.includes("カナ") ||
@@ -444,16 +538,31 @@ function parseCSV(csv) {
       h === "名前（カナ）"
     ) {
       kanaIndex = index;
-    } else if (h.includes("プロジェクト") || h.includes("プログラム")) {
+    } else if (
+      h.includes("プロジェクト") ||
+      h.includes("プログラム") ||
+      h === "現在のプログラム"
+    ) {
       projectIndex = index;
     } else if (h.includes("出席") || h.includes("参加")) {
       attendanceIndex = index;
     }
   });
 
-  if (kanjiIndex === -1 || kanaIndex === -1 || projectIndex === -1) {
+  // 新フォーマットかどうかを判定
+  const isNewFormat =
+    seiIndex !== -1 &&
+    meiIndex !== -1 &&
+    seiKanaIndex !== -1 &&
+    meiKanaIndex !== -1 &&
+    cs1Index !== -1;
+
+  if (
+    !isNewFormat &&
+    (kanjiIndex === -1 || kanaIndex === -1 || projectIndex === -1)
+  ) {
     showNotification(
-      "必要な列（名前（漢字）、名前（カナ）、プログラム）が見つかりません",
+      "必要な列が見つかりません。新フォーマット（姓、名、セイ、メイ、CS第一希望）または旧フォーマット（名前（漢字）、名前（カナ）、プログラム）が必要です。",
       "error"
     );
     return;
@@ -461,16 +570,59 @@ function parseCSV(csv) {
 
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""));
-    if (values[kanjiIndex] && values[kanaIndex] && values[projectIndex]) {
-      membersData.push({
-        kanji: values[kanjiIndex],
-        katakana: values[kanaIndex],
-        project: values[projectIndex],
-        attendance:
-          attendanceIndex !== -1 && values[attendanceIndex]
-            ? values[attendanceIndex]
-            : "pending",
-      });
+
+    if (isNewFormat) {
+      // 新フォーマットの処理
+      if (
+        values[seiIndex] &&
+        values[meiIndex] &&
+        values[seiKanaIndex] &&
+        values[meiKanaIndex]
+      ) {
+        const kanji = `${values[seiIndex]}${values[meiIndex]}`.trim();
+        const katakana =
+          `${values[seiKanaIndex]}${values[meiKanaIndex]}`.trim();
+        const cs1 = values[cs1Index] ? values[cs1Index].toString().trim() : "";
+        const cs2 = values[cs2Index] ? values[cs2Index].toString().trim() : "";
+        const cs3 = values[cs3Index] ? values[cs3Index].toString().trim() : "";
+
+        // CS第一希望に基づいてプロジェクトを割り当て
+        let assignedProject = "希望なし";
+        if (cs1) {
+          assignedProject = cs1;
+        }
+
+        membersData.push({
+          kanji: kanji,
+          katakana: katakana,
+          project: assignedProject,
+          cs1: cs1,
+          cs2: cs2,
+          cs3: cs3,
+          registrationType: "事前登録", // Excel/CSVから読み込まれたデータは事前登録
+          attendance:
+            attendanceIndex !== -1 && values[attendanceIndex]
+              ? values[attendanceIndex]
+              : "pending",
+        });
+      }
+    } else {
+      // 旧フォーマットの処理
+      if (values[kanjiIndex] && values[kanaIndex] && values[projectIndex]) {
+        membersData.push({
+          kanji: values[kanjiIndex],
+          katakana: values[kanaIndex],
+          project: values[projectIndex],
+          cs1: values[projectIndex], // 旧データの場合は現在のプロジェクトを第一希望とする
+          cs2: "",
+          cs3: "",
+          registrationType: "事前登録", // Excel/CSVから読み込まれたデータは事前登録
+          attendance:
+            attendanceIndex !== -1 && values[attendanceIndex]
+              ? values[attendanceIndex]
+              : "pending",
+        });
+      }
     }
   }
 
@@ -522,6 +674,14 @@ function displaySearchResults(matches) {
         nameDisplay = member.katakana;
       }
 
+      // CS希望情報を表示用に整形
+      const csPreferences = [];
+      if (member.cs1) csPreferences.push(`第一希望: ${member.cs1}`);
+      if (member.cs2) csPreferences.push(`第二希望: ${member.cs2}`);
+      if (member.cs3) csPreferences.push(`第三希望: ${member.cs3}`);
+      const csPreferencesDisplay =
+        csPreferences.length > 0 ? csPreferences.join("<br>") : "希望情報なし";
+
       return `
           <div class="result-card">
               <div class="result-info">
@@ -530,8 +690,12 @@ function displaySearchResults(matches) {
                       <div class="info-value">${nameDisplay}</div>
                   </div>
                   <div class="info-item">
-                      <div class="info-label">見学プログラム</div>
+                      <div class="info-label">現在の割り当て</div>
                       <div class="info-value">${member.project}</div>
+                  </div>
+                  <div class="info-item">
+                      <div class="info-label">CS希望</div>
+                      <div class="info-value" style="font-size: 14px; line-height: 1.4;">${csPreferencesDisplay}</div>
                   </div>
                   <div class="info-item">
                       <div class="info-label">出席状況</div>
@@ -638,6 +802,10 @@ function addNewMember() {
     kanji: kanji || "", // 空でも可
     katakana: katakana || "", // 空でも可
     project: projectName,
+    cs1: projectName, // 追加時のプロジェクトを第一希望として設定
+    cs2: "", // 新規追加の場合は空
+    cs3: "", // 新規追加の場合は空
+    registrationType: "当日登録", // 手動で追加された人は当日登録
     attendance: "present", // 出席状態で登録
   });
 
@@ -799,10 +967,15 @@ function updateProjectList() {
       const presentMembers = projectMembers.filter(
         (m) => m.attendance === "present"
       );
+      const preRegisteredMembers = projectMembers.filter(
+        (m) => m.registrationType === "事前登録"
+      );
+      const dayRegisteredMembers = projectMembers.filter(
+        (m) => m.registrationType === "当日登録"
+      );
       const projectAbsent = projectMembers.filter(
         (m) => m.attendance === "absent"
       );
-
       absentMembers = absentMembers.concat(projectAbsent);
 
       const isFull = projectMembers.length >= project.maxMembers;
@@ -821,9 +994,14 @@ function updateProjectList() {
                   nameDisplay = member.katakana;
                 }
 
+                // 識別子（漢字優先、なければカタカナ）
+                const identifier = member.kanji || member.katakana;
+
                 return `
                   <div class="member-item">
-                      <span>${nameDisplay}</span>
+                      <span class="member-name" onclick="showMemberDetails('${identifier}')" style="cursor: pointer; color: #0f8c52; text-decoration: underline;">
+                          ${nameDisplay}
+                      </span>
                       <span class="attendance-status status-${
                         member.attendance
                       }">
@@ -849,20 +1027,22 @@ function updateProjectList() {
                   <div class="project-title">${project.name}</div>
                   <div class="project-stats">
                       <div class="stat-item">
-                          <div class="stat-number">${project.maxMembers}</div>
-                          <div class="stat-label">最大人数</div>
+                          <div class="stat-number">${presentMembers.length}/${
+        project.maxMembers
+      }</div>
+                          <div class="stat-label">出席者/最大人数</div>
                       </div>
                       <div class="stat-item">
                           <div class="stat-number">${
-                            projectMembers.length
+                            preRegisteredMembers.length
                           }</div>
-                          <div class="stat-label">登録人数</div>
+                          <div class="stat-label">事前登録者</div>
                       </div>
                       <div class="stat-item">
                           <div class="stat-number">${
-                            presentMembers.length
+                            dayRegisteredMembers.length
                           }</div>
-                          <div class="stat-label">出席者</div>
+                          <div class="stat-label">当日登録者</div>
                       </div>
                   </div>
                   <div class="member-list">
@@ -889,9 +1069,14 @@ function updateProjectList() {
           nameDisplay = member.katakana;
         }
 
+        // 識別子（漢字優先、なければカタカナ）
+        const identifier = member.kanji || member.katakana;
+
         return `
               <div class="absent-member">
-                  ${nameDisplay}<br>
+                  <span class="member-name" onclick="showMemberDetails('${identifier}')" style="cursor: pointer; color: #721c24; text-decoration: underline;">
+                      ${nameDisplay}
+                  </span><br>
                   <small>${member.project}</small>
               </div>
           `;
@@ -901,6 +1086,31 @@ function updateProjectList() {
   } else {
     absentListDiv.style.display = "none";
   }
+}
+
+// 参加者詳細表示
+function showMemberDetails(identifier) {
+  // 該当する参加者を検索
+  const member = membersData.find(
+    (m) => m.kanji === identifier || m.katakana === identifier
+  );
+
+  if (!member) {
+    showNotification("参加者が見つかりませんでした", "error");
+    return;
+  }
+
+  // 検索結果と同じ形式で表示
+  displaySearchResults([member]);
+
+  // 検索ボックスに名前を設定
+  document.getElementById("searchInput").value = identifier;
+
+  // 検索結果エリアまでスクロール
+  document.getElementById("searchResults").scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 }
 
 // ファイル書き出し
@@ -923,7 +1133,15 @@ function exportCsv() {
 
 // Excel出力
 function exportExcel() {
-  const headers = ["名前（漢字）", "名前（カナ）", "プログラム", "出席状況"];
+  const headers = [
+    "名前（漢字）",
+    "名前（カナ）",
+    "現在のプログラム",
+    "CS第一希望",
+    "CS第二希望",
+    "CS第三希望",
+    "出席状況",
+  ];
   const data = [headers];
 
   membersData.forEach((member) => {
@@ -931,6 +1149,9 @@ function exportExcel() {
       member.kanji,
       member.katakana,
       member.project,
+      member.cs1 || "",
+      member.cs2 || "",
+      member.cs3 || "",
       getAttendanceText(member.attendance),
     ]);
   });
@@ -951,7 +1172,15 @@ function exportExcel() {
 
 // CSV出力
 function exportCSV() {
-  const headers = ["名前（漢字）", "名前（カナ）", "プログラム", "出席状況"];
+  const headers = [
+    "名前（漢字）",
+    "名前（カナ）",
+    "現在のプログラム",
+    "CS第一希望",
+    "CS第二希望",
+    "CS第三希望",
+    "出席状況",
+  ];
   const csvContent = [headers.join(",")];
 
   membersData.forEach((member) => {
@@ -959,6 +1188,9 @@ function exportCSV() {
       `"${member.kanji}"`,
       `"${member.katakana}"`,
       `"${member.project}"`,
+      `"${member.cs1 || ""}"`,
+      `"${member.cs2 || ""}"`,
+      `"${member.cs3 || ""}"`,
       `"${getAttendanceText(member.attendance)}"`,
     ];
     csvContent.push(row.join(","));
