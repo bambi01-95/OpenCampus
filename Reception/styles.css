@@ -361,6 +361,37 @@ h1 {
   color: #dc3545;
 }
 
+/* 人数超過時の色分け */
+.project-card.over-capacity-red {
+  background: #f8d7da;
+  border-color: #dc3545;
+}
+
+.project-card.over-capacity-red .project-number {
+  background: #dc3545;
+  color: white;
+}
+
+.project-card.over-capacity-red .stat-number {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.project-card.over-capacity-yellow {
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.project-card.over-capacity-yellow .project-number {
+  background: #ffc107;
+  color: #212529;
+}
+
+.project-card.over-capacity-yellow .stat-number {
+  color: #856404;
+  font-weight: bold;
+}
+
 .project-header {
   display: flex;
   justify-content: space-between;

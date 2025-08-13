@@ -640,14 +640,17 @@ function populateProjectSelects() {
     const select = document.getElementById(selectId);
     select.innerHTML = '<option value="">プログラムを選択</option>';
     projects.forEach((project) => {
-      const projectMembers = membersData.filter(
+      const projectPresentMembers = membersData.filter(
+        (m) => m.project === project.name && m.attendance === "present"
+      );
+      const projectAllMembers = membersData.filter(
         (m) => m.project === project.name
       );
-      const isFull = projectMembers.length >= project.maxMembers;
+      const isFull = projectPresentMembers.length >= project.maxMembers;
 
       const option = document.createElement("option");
       option.value = project.name;
-      option.textContent = `${project.id}. ${project.name} (${projectMembers.length}/${project.maxMembers})`;
+      option.textContent = `${project.id}. ${project.name} (${projectPresentMembers.length}/${project.maxMembers}人出席, 全${projectAllMembers.length}人)`;
 
       if (isFull && selectId === "projectSelect") {
         option.disabled = true;
@@ -783,11 +786,13 @@ function addNewMember() {
     return;
   }
 
-  // プロジェクトの人数制限チェック
+  // プロジェクトの人数制限チェック（出席者数ベース）
   const project = projects.find((p) => p.name === projectName);
-  const projectMembers = membersData.filter((m) => m.project === projectName);
+  const projectPresentMembers = membersData.filter(
+    (m) => m.project === projectName && m.attendance === "present"
+  );
 
-  if (projectMembers.length >= project.maxMembers) {
+  if (projectPresentMembers.length >= project.maxMembers) {
     showNotification(
       `${projectName}は満員です。他のプログラムを選択してください。`,
       "error"
@@ -839,13 +844,22 @@ function saveProjectEdit() {
     return;
   }
 
-  // 新しいプロジェクトの人数制限チェック
+  // 新しいプロジェクトの人数制限チェック（出席者数ベース）
   const project = projects.find((p) => p.name === newProject);
-  const projectMembers = membersData.filter(
-    (m) => m.project === newProject && m !== currentEditingMember
+  const projectPresentMembers = membersData.filter(
+    (m) =>
+      m.project === newProject &&
+      m.attendance === "present" &&
+      m !== currentEditingMember
   );
 
-  if (projectMembers.length >= project.maxMembers) {
+  // 編集対象メンバーが出席の場合はカウントに含める
+  const wouldBePresentCount =
+    currentEditingMember.attendance === "present"
+      ? projectPresentMembers.length + 1
+      : projectPresentMembers.length;
+
+  if (wouldBePresentCount > project.maxMembers) {
     showNotification(
       `${newProject}は満員です。他のプログラムを選択してください。`,
       "error"
@@ -900,13 +914,14 @@ function saveMaxMembers() {
     return;
   }
 
-  const projectMembers = membersData.filter(
-    (m) => m.project === currentEditingProject.name
+  const projectPresentMembers = membersData.filter(
+    (m) =>
+      m.project === currentEditingProject.name && m.attendance === "present"
   );
 
-  if (newMaxMembers < projectMembers.length) {
+  if (newMaxMembers < projectPresentMembers.length) {
     showNotification(
-      `現在の登録人数（${projectMembers.length}人）より少ない値は設定できません`,
+      `現在の出席者数（${projectPresentMembers.length}人）より少ない値は設定できません`,
       "error"
     );
     return;
@@ -970,15 +985,32 @@ function updateProjectList() {
       const preRegisteredMembers = projectMembers.filter(
         (m) => m.registrationType === "事前登録"
       );
+      const preRegisteredPresentMembers = preRegisteredMembers.filter(
+        (m) => m.attendance === "present"
+      );
       const dayRegisteredMembers = projectMembers.filter(
         (m) => m.registrationType === "当日登録"
       );
       const projectAbsent = projectMembers.filter(
         (m) => m.attendance === "absent"
       );
+
       absentMembers = absentMembers.concat(projectAbsent);
 
-      const isFull = projectMembers.length >= project.maxMembers;
+      const isFull = presentMembers.length >= project.maxMembers;
+
+      // 色分けロジック
+      let cardColorClass = "";
+      if (
+        preRegisteredMembers.length > project.maxMembers ||
+        presentMembers.length > project.maxMembers
+      ) {
+        // 事前登録者数または出席者数が許容人数を超えている場合は赤色
+        cardColorClass = "over-capacity-red";
+      } else if (projectMembers.length >= project.maxMembers) {
+        // 事前登録者＋当日参加者が許容人数を超えている場合は黄色
+        cardColorClass = "over-capacity-yellow";
+      }
 
       const membersList =
         projectMembers.length > 0
@@ -1016,7 +1048,7 @@ function updateProjectList() {
       return `
               <div class="project-card ${
                 isFull ? "full" : ""
-              }" data-project-id="${project.id}">
+              } ${cardColorClass}" data-project-id="${project.id}">
                   <div class="full-badge">満員</div>
                   <div class="project-header">
                       <div class="project-number">${project.id}</div>
@@ -1034,8 +1066,8 @@ function updateProjectList() {
                       </div>
                       <div class="stat-item">
                           <div class="stat-number">${
-                            preRegisteredMembers.length
-                          }</div>
+                            preRegisteredPresentMembers.length
+                          }/${preRegisteredMembers.length}</div>
                           <div class="stat-label">事前登録者</div>
                       </div>
                       <div class="stat-item">
