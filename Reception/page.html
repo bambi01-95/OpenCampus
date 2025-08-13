@@ -157,6 +157,20 @@
       </div>
     </div>
 
+    <!-- プロジェクト全体表示モーダル -->
+    <div id="projectDetailModal" class="modal">
+      <div class="modal-content project-detail-modal">
+        <div class="modal-header">
+          <h3 class="modal-title" id="projectDetailTitle">プロジェクト詳細</h3>
+          <span class="close" onclick="closeProjectDetailModal()">&times;</span>
+        </div>
+        <div class="project-detail-content">
+          <div class="section-title">出席者一覧</div>
+          <div id="projectDetailMembers" class="project-detail-members"></div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="script.js"></script>
   </body>

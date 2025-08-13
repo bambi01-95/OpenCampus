@@ -78,13 +78,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // モーダル外クリックで閉じる
   window.addEventListener("click", function (e) {
-    const modal = document.getElementById("editModal");
+    const editModal = document.getElementById("editModal");
     const maxModal = document.getElementById("maxMembersModal");
-    if (e.target === modal) {
+    const detailModal = document.getElementById("projectDetailModal");
+
+    if (e.target === editModal) {
       closeEditModal();
     }
     if (e.target === maxModal) {
       closeMaxMembersModal();
+    }
+    if (e.target === detailModal) {
+      closeProjectDetailModal();
     }
   });
 });
@@ -337,6 +342,7 @@ function displayInitialProjects() {
               <div class="member-list">
                   <div class="member-item">参加者なし</div>
               </div>
+              <button class="project-view-all-btn" onclick="showProjectDetail(${project.id})">全体表示</button>
           </div>
       `
     )
@@ -1331,6 +1337,9 @@ function updateProjectList() {
                   <div class="member-list">
                       ${membersList}
                   </div>
+                  <button class="project-view-all-btn" onclick="showProjectDetail(${
+                    project.id
+                  })">全体表示</button>
               </div>
           `;
     })
@@ -1587,4 +1596,55 @@ function updateBriefingList() {
     .join("");
 
   briefingListDiv.innerHTML = briefingCards;
+}
+
+// プロジェクト詳細表示
+function showProjectDetail(projectId) {
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) {
+    showNotification("プロジェクトが見つかりません", "error");
+    return;
+  }
+
+  // プロジェクトの参加者（出席者のみ）を取得
+  const projectMembers = membersData.filter(
+    (m) => m.project === project.name && m.attendance === "present"
+  );
+
+  // モーダルタイトルを設定
+  document.getElementById("projectDetailTitle").textContent = project.name;
+
+  // 出席者一覧を表示（名前のみ、シンプルに）
+  const membersHTML =
+    projectMembers.length > 0
+      ? projectMembers
+          .map((member, index) => {
+            // 表示名を決定
+            let nameDisplay = "";
+            if (member.kanji && member.katakana) {
+              nameDisplay = `${member.kanji} (${member.katakana})`;
+            } else if (member.kanji) {
+              nameDisplay = member.kanji;
+            } else if (member.katakana) {
+              nameDisplay = member.katakana;
+            }
+
+            return `
+          <div class="project-detail-member">
+            <span class="detail-member-name">${index + 1}. ${nameDisplay}</span>
+          </div>
+        `;
+          })
+          .join("")
+      : '<div class="project-detail-member"><span class="detail-member-name">出席者なし</span></div>';
+
+  document.getElementById("projectDetailMembers").innerHTML = membersHTML;
+
+  // モーダルを表示
+  document.getElementById("projectDetailModal").style.display = "block";
+}
+
+// プロジェクト詳細モーダルを閉じる
+function closeProjectDetailModal() {
+  document.getElementById("projectDetailModal").style.display = "none";
 }
