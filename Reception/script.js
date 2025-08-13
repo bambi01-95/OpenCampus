@@ -1,5 +1,6 @@
 // グローバル変数
 let membersData = [];
+let briefingData = []; // 説明会参加者データ
 let projects = [
   {
     id: 1,
@@ -37,12 +38,16 @@ window.addEventListener("beforeunload", function (e) {
 document.addEventListener("DOMContentLoaded", function () {
   populateProjectSelects();
   updateProjectList();
+  updateBriefingList();
   displayInitialProjects();
 
   // イベントリスナー
   document
     .getElementById("csvFile")
     .addEventListener("change", handleFileSelect);
+  document
+    .getElementById("briefingFile")
+    .addEventListener("change", handleBriefingFileSelect);
   document.getElementById("exportCsv").addEventListener("click", exportCsv);
   document
     .getElementById("clearSearchBtn")
@@ -385,7 +390,7 @@ function parseExcelData(data) {
   }
 
   const headers = jsonData[0];
-  membersData = [];
+  // membersData = []; // 既存データをクリアしないように削除
 
   // 新しいフォーマットに対応したカラムマッピング
   let seiIndex = -1,
@@ -469,8 +474,241 @@ function parseExcelData(data) {
   }
 
   updateProjectList();
+  const programParticipants = membersData.filter((m) => !m.isBriefing).length;
   showNotification(
-    `${membersData.length}件のデータを読み込みました`,
+    `${programParticipants}件のプログラム参加者データを読み込みました（総データ数: ${membersData.length}件）`,
+    "success"
+  );
+}
+
+// 説明会ファイル読み込み処理
+function handleBriefingFileSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const fileName = file.name.toLowerCase();
+  const isExcel = fileName.endsWith(".xlsx") || fileName.endsWith(".xls");
+
+  if (isExcel) {
+    handleBriefingExcelFile(file);
+  } else {
+    handleBriefingCSVFile(file);
+  }
+}
+
+// 説明会Excelファイル処理
+function handleBriefingExcelFile(file) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    try {
+      parseBriefingExcelData(e.target.result);
+    } catch (error) {
+      showNotification(
+        "説明会Excelファイルの読み込みに失敗しました: " + error.message,
+        "error"
+      );
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// 説明会Excel データ解析
+function parseBriefingExcelData(data) {
+  const workbook = XLSX.read(data, { type: "array" });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+  if (jsonData.length < 2) {
+    showNotification("説明会Excelファイルが正しくありません", "error");
+    return;
+  }
+
+  const headers = jsonData[0];
+
+  // 説明会フォーマット用のカラムマッピング
+  let timeIndex = -1,
+    seiIndex = -1,
+    meiIndex = -1,
+    seiKanaIndex = -1,
+    meiKanaIndex = -1;
+
+  headers.forEach((header, index) => {
+    const h = header.toString().trim();
+    if (h === "時間") {
+      timeIndex = index;
+    } else if (h === "姓") {
+      seiIndex = index;
+    } else if (h === "名") {
+      meiIndex = index;
+    } else if (h === "セイ") {
+      seiKanaIndex = index;
+    } else if (h === "メイ") {
+      meiKanaIndex = index;
+    }
+  });
+
+  if (
+    timeIndex === -1 ||
+    seiIndex === -1 ||
+    meiIndex === -1 ||
+    seiKanaIndex === -1 ||
+    meiKanaIndex === -1
+  ) {
+    showNotification(
+      "必要な列（時間、姓、名、セイ、メイ）が見つかりません",
+      "error"
+    );
+    return;
+  }
+
+  for (let i = 1; i < jsonData.length; i++) {
+    const row = jsonData[i];
+    if (
+      row[timeIndex] &&
+      row[seiIndex] &&
+      row[meiIndex] &&
+      row[seiKanaIndex] &&
+      row[meiKanaIndex]
+    ) {
+      const time = row[timeIndex].toString().trim();
+      const kanji = `${row[seiIndex]}${row[meiIndex]}`.trim();
+      const katakana = `${row[seiKanaIndex]}${row[meiKanaIndex]}`.trim();
+
+      briefingData.push({
+        time: time,
+        kanji: kanji,
+        katakana: katakana,
+        registrationType: "事前登録", // 説明会参加者も事前登録扱い
+        attendance: "pending",
+      });
+
+      // 検索対象にも追加
+      membersData.push({
+        kanji: kanji,
+        katakana: katakana,
+        project: "説明会参加",
+        cs1: "",
+        cs2: "",
+        cs3: "",
+        registrationType: "事前登録",
+        attendance: "pending",
+        isBriefing: true, // 説明会参加者フラグ
+        briefingTime: time,
+      });
+    }
+  }
+
+  updateProjectList();
+  updateBriefingList();
+  const briefingParticipants = briefingData.length;
+  const totalParticipants = membersData.length;
+  showNotification(
+    `${briefingParticipants}件の説明会参加者データを読み込みました（総データ数: ${totalParticipants}件）`,
+    "success"
+  );
+}
+
+// 説明会CSVファイル処理
+function handleBriefingCSVFile(file) {
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const csv = e.target.result;
+    parseBriefingCSV(csv);
+  };
+  reader.readAsText(file, "UTF-8");
+}
+
+// 説明会CSV解析
+function parseBriefingCSV(csv) {
+  const lines = csv.split("\n").filter((line) => line.trim());
+  if (lines.length < 2) {
+    showNotification("説明会CSVファイルが正しくありません", "error");
+    return;
+  }
+
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+
+  let timeIndex = -1,
+    seiIndex = -1,
+    meiIndex = -1,
+    seiKanaIndex = -1,
+    meiKanaIndex = -1;
+
+  headers.forEach((header, index) => {
+    const h = header.trim();
+    if (h === "時間") {
+      timeIndex = index;
+    } else if (h === "姓") {
+      seiIndex = index;
+    } else if (h === "名") {
+      meiIndex = index;
+    } else if (h === "セイ") {
+      seiKanaIndex = index;
+    } else if (h === "メイ") {
+      meiKanaIndex = index;
+    }
+  });
+
+  if (
+    timeIndex === -1 ||
+    seiIndex === -1 ||
+    meiIndex === -1 ||
+    seiKanaIndex === -1 ||
+    meiKanaIndex === -1
+  ) {
+    showNotification(
+      "必要な列（時間、姓、名、セイ、メイ）が見つかりません",
+      "error"
+    );
+    return;
+  }
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(",").map((v) => v.trim().replace(/"/g, ""));
+
+    if (
+      values[timeIndex] &&
+      values[seiIndex] &&
+      values[meiIndex] &&
+      values[seiKanaIndex] &&
+      values[meiKanaIndex]
+    ) {
+      const time = values[timeIndex].trim();
+      const kanji = `${values[seiIndex]}${values[meiIndex]}`.trim();
+      const katakana = `${values[seiKanaIndex]}${values[meiKanaIndex]}`.trim();
+
+      briefingData.push({
+        time: time,
+        kanji: kanji,
+        katakana: katakana,
+        registrationType: "事前登録",
+        attendance: "pending",
+      });
+
+      // 検索対象にも追加
+      membersData.push({
+        kanji: kanji,
+        katakana: katakana,
+        project: "説明会参加",
+        cs1: "",
+        cs2: "",
+        cs3: "",
+        registrationType: "事前登録",
+        attendance: "pending",
+        isBriefing: true,
+        briefingTime: time,
+      });
+    }
+  }
+
+  updateProjectList();
+  updateBriefingList();
+  const briefingParticipants = briefingData.length;
+  const totalParticipants = membersData.length;
+  showNotification(
+    `${briefingParticipants}件の説明会参加者データを読み込みました（総データ数: ${totalParticipants}件）`,
     "success"
   );
 }
@@ -494,7 +732,7 @@ function parseCSV(csv) {
   }
 
   const headers = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
-  membersData = [];
+  // membersData = []; // 既存データをクリアしないように削除
 
   // 新しいフォーマットまたは旧フォーマットに対応
   let seiIndex = -1,
@@ -627,8 +865,9 @@ function parseCSV(csv) {
   }
 
   updateProjectList();
+  const programParticipants = membersData.filter((m) => !m.isBriefing).length;
   showNotification(
-    `${membersData.length}件のデータを読み込みました`,
+    `${programParticipants}件のプログラム参加者データを読み込みました（総データ数: ${membersData.length}件）`,
     "success"
   );
 }
@@ -945,7 +1184,19 @@ function markAttendance(identifier, status) {
   if (member) {
     const displayName = member.kanji || member.katakana;
     member.attendance = status;
+
+    // 説明会参加者データも同時に更新
+    if (member.isBriefing) {
+      const briefingMember = briefingData.find(
+        (b) => b.kanji === member.kanji && b.katakana === member.katakana
+      );
+      if (briefingMember) {
+        briefingMember.attendance = status;
+      }
+    }
+
     updateProjectList();
+    updateBriefingList();
     performSearch();
     showNotification(
       `${displayName}さんを${getAttendanceText(status)}に設定しました`,
@@ -1249,4 +1500,91 @@ function exportCSV() {
     document.body.removeChild(link);
     showNotification("CSVファイルをダウンロードしました", "success");
   }
+}
+
+// 説明会参加者リスト更新
+function updateBriefingList() {
+  const briefingSectionDiv = document.getElementById("briefingSection");
+  const briefingListDiv = document.getElementById("briefingList");
+
+  if (briefingData.length === 0) {
+    briefingSectionDiv.style.display = "none";
+    return;
+  }
+
+  briefingSectionDiv.style.display = "block";
+
+  // 時間ごとにグループ化
+  const groupedByTime = briefingData.reduce((groups, member) => {
+    const time = member.time;
+    if (!groups[time]) {
+      groups[time] = [];
+    }
+    groups[time].push(member);
+    return groups;
+  }, {});
+
+  // 時間順にソート
+  const sortedTimes = Object.keys(groupedByTime).sort();
+
+  const briefingCards = sortedTimes
+    .map((time) => {
+      const timeMembers = groupedByTime[time];
+      const presentMembers = timeMembers.filter(
+        (m) => m.attendance === "present"
+      );
+
+      const membersList =
+        timeMembers.length > 0
+          ? timeMembers
+              .map((member) => {
+                // 表示名を決定
+                let nameDisplay = "";
+                if (member.kanji && member.katakana) {
+                  nameDisplay = `${member.kanji} (${member.katakana})`;
+                } else if (member.kanji) {
+                  nameDisplay = member.kanji;
+                } else if (member.katakana) {
+                  nameDisplay = member.katakana;
+                }
+
+                // 識別子（漢字優先、なければカタカナ）
+                const identifier = member.kanji || member.katakana;
+
+                return `
+                  <div class="member-item">
+                      <span class="member-name" onclick="showMemberDetails('${identifier}')" style="cursor: pointer; color: #17a2b8; text-decoration: underline;">
+                          ${nameDisplay}
+                      </span>
+                      <span class="attendance-status status-${
+                        member.attendance
+                      }">
+                          ${getAttendanceText(member.attendance)}
+                      </span>
+                  </div>
+                `;
+              })
+              .join("")
+          : '<div class="member-item">参加者なし</div>';
+
+      return `
+              <div class="briefing-card">
+                  <div class="briefing-header">
+                      <div class="briefing-time">${time}</div>
+                  </div>
+                  <div class="briefing-stats">
+                      <div class="stat-item">
+                          <div class="stat-number">${presentMembers.length}/${timeMembers.length}</div>
+                          <div class="stat-label">出席者/登録者</div>
+                      </div>
+                  </div>
+                  <div class="briefing-member-list">
+                      ${membersList}
+                  </div>
+              </div>
+          `;
+    })
+    .join("");
+
+  briefingListDiv.innerHTML = briefingCards;
 }

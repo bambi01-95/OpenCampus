@@ -25,7 +25,18 @@
               accept=".csv,.xlsx,.xls"
             />
             <label for="csvFile" class="btn btn-primary"
-              >ファイル読み込み</label
+              >プログラム参加者読み込み</label
+            >
+          </div>
+          <div class="file-input-wrapper">
+            <input
+              type="file"
+              id="briefingFile"
+              class="file-input"
+              accept=".csv,.xlsx,.xls"
+            />
+            <label for="briefingFile" class="btn btn-primary"
+              >説明会参加者読み込み</label
             >
           </div>
           <button id="exportCsv" class="btn btn-primary">
@@ -87,6 +98,12 @@
         <!-- プロジェクト一覧 -->
         <div class="section-title">見学プログラム一覧</div>
         <div id="projectList" class="project-grid"></div>
+
+        <!-- 説明会参加者一覧 -->
+        <div id="briefingSection" class="briefing-section" style="display: none">
+          <div class="section-title">説明会参加者一覧</div>
+          <div id="briefingList" class="briefing-grid"></div>
+        </div>
 
         <!-- 欠席者リスト -->
         <div id="absentList" class="absent-list" style="display: none">
